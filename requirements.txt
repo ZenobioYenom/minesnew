@@ -1,4 +1,2 @@
-python-telegram-bot==20.7
-aiohttp
-apscheduler==3.10.4
-requests==2.31.0
+python-telegram-bot==21.10
+python-telegram-bot[job-queue]==21.10
