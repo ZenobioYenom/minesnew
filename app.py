@@ -1,15 +1,14 @@
 import logging
 import asyncio 
 import re 
-import os
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, WebAppInfo
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ConversationHandler, ContextTypes
 from functools import wraps
 from collections import deque
 import random 
 from datetime import datetime
 from telegram.helpers import escape_markdown 
-from telegram.error import BadRequest
+from telegram.error import BadRequest # ДОБАВЛЕНО: Для обработки ошибки Chat_admin_required
 
 # Установка уровня логов
 logging.basicConfig(
@@ -18,19 +17,21 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # --- КОНСТАНТЫ И КОНФИГУРАЦИЯ ---
-TOKEN = "7692269177:AAGnz7egfTyoMwDY2y1px8Wmok-2W0BCecg"
-ADMIN_IDS = [7428791161, 1993108159]
+# !!! ОБЯЗАТЕЛЬНО ЗАМЕНИТЕ ЭТИ ЗНАЧЕНИЯ !!!
+TOKEN = "7692269177:AAGnz7egfTyoMwDY2y1px8Wmok-2W0BCecg"  # Замените на ваш токен
+ADMIN_ID = [7428791161, 1993108159]  # Замените на ваш фактический ID администратора
 SUPPORT_USERNAME = "@koalamoney3" 
 PROMO_CODE = "MOB500RR"
 REG_LINK = "https://1wbkpnt.com/?open=register&p=gv72"
 CHANNEL_LINK = "https://t.me/+dWqBt5Ix380zNjI5"
-CHANNEL_USERNAME = "1002486046690"
+CHANNEL_USERNAME = "1002486046690" # Имя канала с @
 MINI_APP_URL = "https://zenobioyenom.github.io/appmineswin/"
 
 # ШАГ 1: ВРЕМЕННЫЙ РЕЖИМ ДЛЯ ПОЛУЧЕНИЯ FILE ID
-GET_FILE_ID_MODE = False
+GET_FILE_ID_MODE = True  
 
 # ШАГ 2: ВСТАВЬТЕ РЕАЛЬНЫЕ FILE ID СЮДА
+# Если File ID является заглушкой ('placeholder'), код автоматически переключится на отправку текста.
 PHOTO_IDS = {
     'privet': 'AgACAgQJcn_photo_id_privet_placeholder',
     'menu': 'AgACAgQJcn_photo_id_menu_placeholder',
@@ -42,6 +43,13 @@ PHOTO_IDS = {
     'reg_PT': 'AgACAgQJcn_photo_id_regPT_placeholder',
     'test1': 'AgACAgQJcn_photo_id_test1_placeholder', 
 }
+
+# Если включен режим получения ID
+if GET_FILE_ID_MODE:
+    print("\n\n#####################################################")
+    print("## РЕЖИМ ПОЛУЧЕНИЯ FILE ID АКТИВИРОВАН! ##")
+    print("#####################################################\n\n")
+
 
 # Состояния для ConversationHandler 
 START_MENU, MAIN_MENU = range(2)
@@ -62,17 +70,21 @@ STATS = {
     'bot_status': '✅ Operating normally'
 }
 
-# --- ЛОКАЛИЗАЦИЯ ---
+# --- ЛОКАЛИЗАЦИЯ (Обновлена) ---
 
+# 1. Определяем базовый набор сообщений на английском (ИСПОЛЬЗУЕТСЯ АДМИНОМ)
 base_english_messages = {
+    # General & Core
+    'admin_id': ADMIN_ID,
     'start_user': "🌐 Select your language / Elige tu idioma / Escolha o idioma 🌐",
-    'start_admin': "Hi, Admin!\nI've recognized your ID — good to see you again! 🤖",
+    'start_admin': "Hi, Admin!\nI’ve recognized your ID — good to see you again! 🤖",
     'language_set': "Language set to English.",
     'admin_access_denied': "Access denied. You are not an administrator.",
     'language_select_prompt': "🌐 Select your language / Elige tu idioma / Escolha o idioma 🌐",
     'photo_placeholder': "[Image placeholder]", 
     'support_link_text': "Click the button below to contact support: {username}",
 
+    # User Menu Buttons (ДОБАВЛЕНЫ ЭМОДЗИ)
     'btn_instruction': "📖 Instruction",
     'btn_registration': "🔗 Registration",
     'btn_get_access': "🔑 Get Bot Access",
@@ -83,6 +95,7 @@ base_english_messages = {
     'btn_get_promo': "💰 Get Promo Code",
     'btn_check_sub': "✅ Check Subscription",
 
+    # User Menu Content
     'menu_access_closed': "Access to the program: 🔴 Closed",
     'menu_access_granted': "Access to the program: 🟢 Granted",
     'menu_telegram_id': "Your Telegram ID: {id}",
@@ -98,13 +111,15 @@ base_english_messages = {
     'application_received': "Information accepted. The verification and connection process has been launched. You will be sent access immediately after completion.",
     'reg_button_text': "Registration Link",
     
+    # Promo Flow Messages
     'promo_check_prompt': "To receive the promo code, you must subscribe to our channel: {link}",
     'promo_not_subscribed': "You are not yet subscribed. Please subscribe and press the 'Check Subscription' button.",
     'promo_subscribed_success': "Subscription verified! Your exclusive promo code is: `{promo}`. Use it during registration.",
     'promo_code_already_sent': "You already have the promo code: `{promo}`. Use it for registration.",
     'promo_channel_error': "⚠️ I cannot verify your subscription. Please ensure the bot is an **administrator** in the channel: `{channel}` with permission to **view members**.",
-    'promo_needed_note': "Please get your promo code first by clicking '💰 Get Promo Code' in the main menu.",
+    'promo_needed_note': "Please get your promo code first by clicking '💰 Get Promo Code' in the main menu.", # <-- НОВОЕ СООБЩЕНИЕ
     
+    # Instruction Text
     'instr_text': (
         "INSTRUCTIONS FOR GETTING STARTED\n"
         "For correct connection, follow these steps:\n"
@@ -118,6 +133,7 @@ base_english_messages = {
         "5) Wait for the connection. As soon as the bot is connected, you will be granted access."
     ),
 
+    # Admin Messages (REMAINS EN)
     'btn_admin_apps': "🧾 Applications ({count})",
     'btn_admin_status': "🤖 Bot Status",
     'btn_admin_stats': "📊 Statistics",
@@ -153,6 +169,7 @@ base_english_messages = {
     'broadcast_cancelled': "Broadcast sending cancelled. Returning to Admin Menu.",
 }
 
+# 2. Определяем переопределения для русского языка
 russian_overrides = {
     'language_set': "Язык установлен на Русский.",
     'photo_placeholder': "[Здесь должна быть картинка]", 
@@ -166,9 +183,13 @@ russian_overrides = {
     'btn_get_promo': "💰 Получить Промокод",
     'btn_check_sub': "✅ Проверить Подписку",
     'support_link_text': "Нажмите кнопку ниже, чтобы связаться со службой поддержки: {username}",
+
+    # Promo Flow Messages 
     'promo_not_subscribed': "Вы еще не подписаны. Пожалуйста, подпишитесь и нажмите кнопку '✅ Проверить Подписку'.",
     'promo_channel_error': "⚠️ Не удалось проверить подписку. Убедитесь, что бот является **администратором** в канале: `{channel}` с правом **просмотра участников**.",
-    'promo_needed_note': "Пожалуйста, получите ваш промокод, нажав на '💰 Получить Промокод' в главном меню.",
+    'promo_needed_note': "Пожалуйста, получите ваш промокод, нажав на '💰 Получить Промокод' в главном меню.", # <-- НОВОЕ СООБЩЕНИЕ
+    
+    # Instruction Text
     'instr_text': (
         "ИНСТРУКЦИЯ ПО НАЧАЛУ РАБОТЫ\n"
         "Для корректного подключения бота выполните следующие шаги:\n"
@@ -183,6 +204,7 @@ russian_overrides = {
     ),
 }
 
+# 3. Определяем переопределения для испанского (ES)
 spanish_overrides = {
     'language_set': "Idioma establecido a Español.", 
     'photo_placeholder': "[Marcador de posición de imagen]", 
@@ -197,6 +219,8 @@ spanish_overrides = {
     'btn_check_sub': "✅ Verificar Suscripción",
     'support_link_text': "Haga clic en el botón de abajo para contactar a soporte: {username}",
     'promo_needed_note': "Por favor, obtenga su código promocional haciendo clic en '💰 Obtener Código Promocional' en el menú principal.",
+    
+    # Instruction Text
     'instr_text': (
         "INSTRUCCIONES PARA EMPEZAR\n"
         "Para una conexión correcta, siga estos pasos:\n"
@@ -211,6 +235,7 @@ spanish_overrides = {
     ),
 }
 
+# 4. Определяем переопределения для португальского (PT)
 portuguese_overrides = {
     'language_set': "Idioma definido para Português.", 
     'photo_placeholder': "[Espaço reservado para imagem]", 
@@ -225,6 +250,8 @@ portuguese_overrides = {
     'btn_check_sub': "✅ Verificar Assinatura",
     'support_link_text': "Clique no botão abaixo para entrar em contato com o suporte: {username}",
     'promo_needed_note': "Por favor, obtenha seu código promocional clicando em '💰 Obter Código Promocional' no menu principal.",
+
+    # Instruction Text
     'instr_text': (
         "INSTRUÇÕES PARA COMEÇAR\n"
         "Para a conexão correta, siga estas etapas:\n"
@@ -239,6 +266,7 @@ portuguese_overrides = {
     ),
 }
 
+# 5. Собираем финальный словарь MESSAGES
 MESSAGES = {
     'EN': base_english_messages,
     'RU': {**base_english_messages, **russian_overrides},
@@ -249,24 +277,31 @@ MESSAGES = {
 # --- УТИЛИТАРНЫЕ ФУНКЦИИ ---
 
 def get_message(user_id, key):
-    # Para usuários normais, usa o idioma deles
-    lang = USER_DATA.get(user_id, {}).get('lang', 'RU')
-    
+    """Получает сообщение на языке пользователя. Использует 'RU' как запасной вариант для пользователей."""
+    if user_id == ADMIN_ID:
+        lang = 'EN'
+    else:
+        lang = USER_DATA.get(user_id, {}).get('lang', 'RU') 
+        
     if lang in MESSAGES and key in MESSAGES[lang]:
         return MESSAGES[lang][key]
     return MESSAGES['EN'].get(key, f"MISSING_KEY:{key}")
 
 def get_photo_id(key):
+    """Получает File ID фотографии. Возвращает None, если это заглушка."""
     file_id = PHOTO_IDS.get(key, None)
     if not file_id or (not GET_FILE_ID_MODE and 'placeholder' in file_id):
         return None
     return file_id
 
+# Декоратор admin_only остается без изменений
+
 def admin_only(func):
+    """Декоратор для ограничения доступа к функциям только для админа."""
     @wraps(func)
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
         user_id = update.effective_user.id
-        if user_id in ADMIN_IDS:
+        if user_id == ADMIN_ID:
             return await func(update, context, *args, **kwargs)
         else:
             if update.callback_query:
@@ -278,17 +313,21 @@ def admin_only(func):
     return wrapper
 
 def get_user_status(user_id):
+    """Возвращает статус пользователя: PENDING, GRANTED, DENIED или NONE."""
     return USER_DATA.get(user_id, {}).get('access', 'NONE')
 
 def get_user_game_id(user_id):
+    """Возвращает игровой ID пользователя или None."""
     return USER_DATA.get(user_id, {}).get('game_id', None)
 
 def has_promo_code(user_id):
+    """Проверяет, был ли пользователю выдан промокод."""
     return USER_DATA.get(user_id, {}).get('has_promo', False)
 
 # --- ФУНКЦИИ КЛАВИАТУР ---
 
 def get_lang_keyboard():
+    """Клавиатура для выбора языка (только EN, ES, PT)."""
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("English", callback_data='set_lang_EN')],
         [InlineKeyboardButton("Español", callback_data='set_lang_ES')],
@@ -296,24 +335,33 @@ def get_lang_keyboard():
     ])
 
 def get_main_menu_keyboard(user_id):
+    """Основная клавиатура пользователя."""
+    
+    # 1. Первая строка: Инструкция, Регистрация
     row1 = [KeyboardButton(get_message(user_id, 'btn_instruction')), KeyboardButton(get_message(user_id, 'btn_registration'))]
     
+    # 2. Вторая строка: Основное действие (Получить Промокод ИЛИ Получить Доступ)
     if not has_promo_code(user_id):
+        # Если промокод не получен, предлагаем получить его
         row2 = [KeyboardButton(get_message(user_id, 'btn_get_promo')), KeyboardButton(get_message(user_id, 'btn_change_lang'))]
     else:
+        # Если промокод получен, предлагаем подать заявку
         row2 = [KeyboardButton(get_message(user_id, 'btn_get_access')), KeyboardButton(get_message(user_id, 'btn_change_lang'))]
         
+    # 3. Третья строка: Поддержка, Запуск
     row3 = [KeyboardButton(get_message(user_id, 'btn_support')), KeyboardButton(get_message(user_id, 'btn_launch_app'))]
     
     buttons = [row1, row2, row3]
 
-    # Apenas admins veem o botão de voltar ao menu admin
-    if user_id in ADMIN_IDS:
+    # Добавляем кнопки админа, если это админ
+    if user_id == ADMIN_ID:
         buttons.append([KeyboardButton(get_message(user_id, 'btn_menu_back'))])
         
     return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
 
+# Административные клавиатуры остаются без изменений
 def get_admin_main_keyboard(admin_id):
+    """Главная клавиатура админа."""
     count = len(PENDING_QUEUE)
     return ReplyKeyboardMarkup([
         [KeyboardButton(get_message(admin_id, 'btn_admin_apps').format(count=count))],
@@ -323,6 +371,7 @@ def get_admin_main_keyboard(admin_id):
     ], resize_keyboard=True)
 
 def get_admin_processing_keyboard(admin_id):
+    """Клавиатура для обработки заявки."""
     return ReplyKeyboardMarkup([
         [KeyboardButton(get_message(admin_id, 'btn_accept'))],
         [KeyboardButton(get_message(admin_id, 'btn_reject')), KeyboardButton(get_message(admin_id, 'btn_reject_comment'))],
@@ -330,33 +379,61 @@ def get_admin_processing_keyboard(admin_id):
     ], resize_keyboard=True)
 
 def get_admin_apps_menu(admin_id):
+    """Клавиатура после показа количества заявок."""
     return ReplyKeyboardMarkup([
         [KeyboardButton(get_message(admin_id, 'btn_start_processing'))],
         [KeyboardButton(get_message(admin_id, 'btn_admin_back'))],
     ], resize_keyboard=True)
 
 def get_admin_broadcast_keyboard(admin_id):
+    """Клавиатура для выбора типа рассылки."""
     return ReplyKeyboardMarkup([
         [KeyboardButton(get_message(admin_id, 'btn_broadcast_now')), KeyboardButton(get_message(admin_id, 'btn_broadcast_later'))],
         [KeyboardButton(get_message(admin_id, 'btn_admin_back'))],
     ], resize_keyboard=True)
 
 def get_confirm_keyboard(admin_id):
+    """Клавиатура подтверждения/отмены."""
     return ReplyKeyboardMarkup([
         [KeyboardButton(get_message(admin_id, 'btn_confirm')), KeyboardButton(get_message(admin_id, 'btn_cancel'))],
     ], resize_keyboard=True)
 
-# --- ХЕНДЛЕРЫ ---
+# --- НОВЫЙ ХЕНДЛЕР: ВРЕМЕННЫЙ ДЛЯ ПОЛУЧЕНИЯ FILE ID ---
+async def get_file_id_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Временный хендлер для получения file ID загруженных фотографий/документов."""
+    if update.message.photo:
+        # Берем самый большой размер фотографии
+        file_id = update.message.photo[-1].file_id
+        await update.message.reply_text(
+            f"✅ PHOTO FILE ID: `{file_id}`\n\n**Скопируйте этот ID** и вставьте его в словарь PHOTO_IDS, затем установите `GET_FILE_ID_MODE = False`.", 
+            parse_mode='Markdown'
+        )
+        logger.info(f"PHOTO FILE ID: {file_id}")
+    elif update.message.document:
+        file_id = update.message.document.file_id
+        await update.message.reply_text(
+            f"✅ DOCUMENT FILE ID: `{file_id}`\n\n**Скопируйте этот ID** и вставьте его в словарь PHOTO_IDS, затем установите `GET_FILE_ID_MODE = False`.", 
+            parse_mode='Markdown'
+        )
+        logger.info(f"DOCUMENT FILE ID: {file_id}")
+    else:
+        await update.message.reply_text("Пожалуйста, отправьте фотографию или документ, чтобы получить его ID.")
+
+
+# --- ХЕНДЛЕРЫ: СТАРТ И ЯЗЫК ---
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Обрабатывает команду /start и направляет админа/пользователя."""
     user_id = update.effective_user.id
     
     if user_id not in USER_DATA:
+        # Устанавливаем язык по умолчанию для пользователя (например, RU)
         lang_code = update.effective_user.language_code
         USER_DATA[user_id] = {'lang': lang_code.upper() if lang_code and lang_code.upper() in MESSAGES else 'RU', 
                               'access': 'NONE', 'game_id': None, 'application_info': None, 'has_promo': False}
     
-    if user_id in ADMIN_IDS:
+    if user_id == ADMIN_ID:
+        # Для админа сразу ставим EN для сообщений
         USER_DATA[user_id]['lang'] = 'EN'
         await update.message.reply_text(
             get_message(user_id, 'start_admin'),
@@ -374,6 +451,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
                 reply_markup=get_lang_keyboard()
             )
         else:
+             # Fallback to text + placeholder note
              caption += f"\n\n{get_message(user_id, 'photo_placeholder')}"
              await update.message.reply_text(
                 caption,
@@ -382,6 +460,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         return START_MENU
 
 async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Устанавливает язык для пользователя."""
     query = update.callback_query
     await query.answer()
     
@@ -393,10 +472,26 @@ async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
     await query.message.delete()
     
+    await show_user_main_menu(update, context) # Передаем полный объект update
+    return MAIN_MENU
+
+async def go_to_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Общий хендлер для возврата в главное меню."""
+    user_id = update.effective_user.id
+    # Проверяем, если админ нажал на кнопку "Назад в меню админа", то показываем админское меню.
+    if user_id == ADMIN_ID and update.message.text == get_message(user_id, 'btn_admin_back'):
+        return await admin_start_menu(update, context)
+    
     await show_user_main_menu(update, context)
     return MAIN_MENU
 
+# --- ХЕНДЛЕРЫ: ПОЛЬЗОВАТЕЛЬСКОЕ МЕНЮ ---
+
 async def show_user_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Показывает главное меню пользователю с его статусом.
+    Универсальная функция, которая может быть вызвана из Message, CallbackQuery или напрямую.
+    """
     user_id = None
     
     if update.callback_query:
@@ -405,6 +500,7 @@ async def show_user_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE
     elif update.message:
         user_id = update.message.from_user.id
         source_message = update.message
+    # Это для случая, когда вызывается из другого места, где update.effective_user доступен
     elif hasattr(update, 'effective_user'):
         user_id = update.effective_user.id
         source_message = update.effective_message
@@ -437,12 +533,15 @@ async def show_user_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE
     
     photo_id = get_photo_id('menu')
 
+    # Пытаемся удалить/отредактировать предыдущее сообщение (если это callback)
     if update.callback_query and source_message:
         try:
              await source_message.delete()
         except:
+             # Если не удалось удалить, просто отправляем новое
              pass
     
+    # Отправка фото или текста
     if photo_id:
         await context.bot.send_photo(
             chat_id=user_id,
@@ -451,23 +550,15 @@ async def show_user_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE
             reply_markup=get_main_menu_keyboard(user_id)
         )
     else:
+        # Fallback на текст + заглушка
         text += f"\n\n{get_message(user_id, 'photo_placeholder')}"
         await context.bot.send_message(chat_id=user_id, text=text, reply_markup=get_main_menu_keyboard(user_id))
 
-async def go_to_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    user_id = update.effective_user.id
-    
-    # Se for admin e clicar no botão de voltar ao menu admin
-    if user_id in ADMIN_IDS and update.message and update.message.text == get_message(user_id, 'btn_admin_back'):
-        return await admin_start_menu(update, context)
-    
-    await show_user_main_menu(update, context)
-    return MAIN_MENU
-
-# --- HANDLERS PARA USUÁRIOS NORMAIS ---
 
 async def handle_instruction(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Обрабатывает кнопку 'Инструкция'."""
     user_id = update.effective_user.id
+    # Инструкция теперь несет промокод, но он форматируется только в тексте.
     text = get_message(user_id, 'instr_text').format(link=REG_LINK) 
     photo_id = get_photo_id('instr')
     
@@ -484,14 +575,16 @@ async def handle_instruction(update: Update, context: ContextTypes.DEFAULT_TYPE)
     return MAIN_MENU
 
 async def handle_registration(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Обрабатывает кнопку 'Регистрация'."""
     user_id = update.effective_user.id
     lang = USER_DATA.get(user_id, {}).get('lang', 'RU')
     
     photo_id_key = f'reg_{lang}'
     photo_id = get_photo_id(photo_id_key)
     
+    # --- ИСПРАВЛЕНИЕ: ПРОМОКОД ТОЛЬКО ПОСЛЕ ПОЛУЧЕНИЯ ---
     if has_promo_code(user_id):
-        promo_note = f"Your promo code: `{PROMO_CODE}`" 
+        promo_note = f"Ваш промокод: `{PROMO_CODE}`." 
     else:
         promo_note = get_message(user_id, 'promo_needed_note')
     
@@ -513,7 +606,10 @@ async def handle_registration(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     return MAIN_MENU
     
+# --- ХЕНДЛЕРЫ ДЛЯ ПРОМОКОДА И ПРОВЕРКИ ПОДПИСКИ ---
+
 async def handle_get_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Начало процесса получения промокода - отправка ссылки на канал."""
     user_id = update.effective_user.id
 
     if has_promo_code(user_id):
@@ -530,29 +626,39 @@ async def handle_get_promo_code(update: Update, context: ContextTypes.DEFAULT_TY
     
     await update.message.reply_text(text, reply_markup=keyboard)
     
+    # Переходим в состояние ожидания проверки подписки
     return AWAITING_CHANNEL_CHECK
 
 async def handle_check_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Проверяет подписку пользователя на канал."""
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
     
     if has_promo_code(user_id):
+        # Если промокод уже есть, просто возвращаемся в меню
         await show_user_main_menu(update, context)
         return MAIN_MENU
 
     try:
+        # Проверяем статус пользователя в канале
         member = await context.bot.get_chat_member(CHANNEL_USERNAME, user_id)
         
+        # is_chat_member() возвращает true для 'member', 'creator', 'administrator'. 
+        # get_chat_member() возвращает объект ChatMember, у которого статус - не 'left' и не 'kicked'
         if member.status not in ['left', 'kicked', 'banned']:
+            # Подписка подтверждена
             USER_DATA[user_id]['has_promo'] = True
             
+            # Отправляем промокод и возвращаемся в главное меню (клавиатура обновится)
             text = get_message(user_id, 'promo_subscribed_success').format(promo=PROMO_CODE)
             await query.message.edit_text(text, parse_mode='Markdown')
             
+            # ИСПРАВЛЕНИЕ: Передаем полный update, чтобы show_user_main_menu корректно определила ID и тип обновления
             await show_user_main_menu(update, context) 
             return MAIN_MENU
         else:
+            # Подписки нет
             text = get_message(user_id, 'promo_not_subscribed')
             keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton("🔗 Telegram Channel", url=CHANNEL_LINK)],
@@ -563,47 +669,59 @@ async def handle_check_subscription(update: Update, context: ContextTypes.DEFAUL
             
     except BadRequest as e:
         logger.error(f"Error checking subscription for {user_id}: {e}")
+        # Ошибка, если бот не админ или канал не найден
         error_text = get_message(user_id, 'promo_channel_error').format(channel=CHANNEL_USERNAME)
         await query.message.reply_text(error_text, parse_mode='Markdown')
         
+        # Возвращаемся в главное меню, чтобы пользователь мог продолжить
         await show_user_main_menu(update, context) 
         return MAIN_MENU
     except Exception as e:
         logger.error(f"An unexpected error occurred during subscription check for {user_id}: {e}")
         await query.message.reply_text("An unexpected error occurred. Please try again later.")
         
+        # Возвращаемся в главное меню
         await show_user_main_menu(update, context)
         return MAIN_MENU
 
 async def handle_get_access(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Начинает процесс подачи заявки (получения ID)."""
     user_id = update.effective_user.id
     status = get_user_status(user_id)
     
+    # 1. Проверка, есть ли промокод
     if not has_promo_code(user_id):
         await update.message.reply_text(get_message(user_id, 'promo_needed_note'))
         return MAIN_MENU
         
-    if status == 'GRANTED':
-        keyboard = [
-            [
-                InlineKeyboardButton("📲 Abrir aplicativo", web_app=WebAppInfo(url=MINI_APP_URL))
-            ],
-            [
-                InlineKeyboardButton("🆘 Suporte", url=f"https://t.me/{SUPPORT_USERNAME.lstrip('@')}")
-            ]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
+    # 2. Если уже одобрен, показываем сообщение с кнопкой Mini App
+if status == 'GRANTED':
+    from telegram import WebAppInfo  # <- adiciona suporte ao botão web_app
 
-        await update.message.reply_text(
-            get_message(user_id, 'access_granted_msg'),
-            reply_markup=reply_markup
-        )
-        return MAIN_MENU
+    keyboard = [
+        [
+            InlineKeyboardButton("📲 Abrir aplicativo", web_app=WebAppInfo(url=MINI_APP_URL))
+        ],
+        [
+            InlineKeyboardButton("🆘 Suporte", url=f"https://t.me/{SUPPORT_USERNAME.lstrip('@')}")
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await update.message.reply_text(
+        get_message(user_id, 'access_granted_msg'),
+        reply_markup=reply_markup
+    )
+
+    return MAIN_MENU
+
         
+    # 3. Если уже в ожидании, сообщаем
     if status == 'PENDING':
         await update.message.reply_text(get_message(user_id, 'menu_pending'))
         return MAIN_MENU
     
+    # 4. Начинаем процесс подачи ID
     USER_DATA[user_id]['application_info'] = {'text': None, 'photo_id': None, 'timestamp': None}
     
     text = get_message(user_id, 'awaiting_id_prompt')
@@ -621,11 +739,14 @@ async def handle_get_access(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     return AWAITING_ID
 
 async def handle_user_id_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Обрабатывает ввод ID или скриншота."""
     user_id = update.effective_user.id
     application_info = USER_DATA[user_id].get('application_info')
 
     if update.message.text:
+        # Это текст (ID)
         game_id = update.message.text.strip()
+        # Простая проверка, что ID похож на номер
         if not re.match(r'^\d{4,}$', game_id):
             await update.message.reply_text(
                 get_message(user_id, 'awaiting_id_prompt')
@@ -633,46 +754,57 @@ async def handle_user_id_input(update: Update, context: ContextTypes.DEFAULT_TYP
             return AWAITING_ID
 
         application_info['text'] = game_id
-        application_info['game_id'] = game_id
-        USER_DATA[user_id]['game_id'] = game_id
+        application_info['game_id'] = game_id  # Сохраняем ID в application_info
+        USER_DATA[user_id]['game_id'] = game_id # Обновляем основной game_id
         
     elif update.message.photo:
-        photo_id = update.message.photo[-1].file_id
+        # Это фото (скриншот)
+        photo_id = update.message.photo[-1].file_id # Берем самое большое фото
         application_info['photo_id'] = photo_id
         
+        # Если фото пришло без текста, просим ввести ID текстом
         if not application_info.get('text'):
-            await update.message.reply_text("Thanks for the screenshot. Now please **enter your account ID** as text so we can copy and process it.")
+            await update.message.reply_text("Спасибо за скриншот. Теперь, пожалуйста, **введите ваш ID счета** текстом, чтобы мы могли его скопировать и обработать.")
             return AWAITING_ID
         
     else:
+        # Неподдерживаемый тип сообщения
         await update.message.reply_text(
             get_message(user_id, 'awaiting_id_prompt')
         )
         return AWAITING_ID
 
+    # Если мы здесь, значит, у нас есть либо ID (текст), либо фото + ID (текст)
     if application_info.get('game_id') or application_info.get('text'):
+        # Финальная обработка заявки
         USER_DATA[user_id]['access'] = 'PENDING'
         application_info['timestamp'] = datetime.now()
         
+        # Добавляем в очередь
         PENDING_QUEUE.append(user_id)
         
+        # Отправляем подтверждение пользователю
         await update.message.reply_text(
             get_message(user_id, 'application_received')
         )
         
+        # Уведомляем администратора о новой заявке
         await context.bot.send_message(
-            ADMIN_IDS[0], 
+            ADMIN_ID, 
             f"🔔 НОВАЯ ЗАЯВКА (PENDING) от User ID: {user_id}. Очередь: {len(PENDING_QUEUE)}"
         )
         
         return MAIN_MENU
     else:
+        # Если не было текста, но было фото, мы уже попросили текст выше.
+        # Если не было ни того, ни другого, это не должно случиться, но на всякий случай
         await update.message.reply_text(
             get_message(user_id, 'awaiting_id_prompt')
         )
         return AWAITING_ID
 
 async def handle_support(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Обрабатывает кнопку 'Обратиться в поддержку'."""
     user_id = update.effective_user.id
     text = get_message(user_id, 'support_link_text').format(username=SUPPORT_USERNAME)
     
@@ -684,29 +816,35 @@ async def handle_support(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     return MAIN_MENU
 
 async def handle_launch_app(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Обрабатывает кнопку 'Запустить программу'."""
     user_id = update.effective_user.id
     status = get_user_status(user_id)
     
     if status == 'GRANTED':
-        await update.message.reply_text(f"✅ Program launched for {get_user_game_id(user_id)}!")
+        # Здесь будет реальный код запуска программы
+        await update.message.reply_text(f"✅ Программа запущена для {get_user_game_id(user_id)}!")
     else:
         await update.message.reply_text(get_message(user_id, 'launch_denied'))
         
     return MAIN_MENU
 
 async def handle_change_lang(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Обрабатывает кнопку 'Изменить язык'."""
     user_id = update.effective_user.id
     
     await update.message.reply_text(
         get_message(user_id, 'language_select_prompt'),
         reply_markup=get_lang_keyboard()
     )
-    return START_MENU
+    # Переходим в состояние START_MENU для выбора языка через callback
+    return START_MENU 
+
 
 # --- ХЕНДЛЕРЫ: АДМИН ПАНЕЛЬ ---
 
 @admin_only
 async def admin_start_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Показывает главное меню админа."""
     admin_id = update.effective_user.id
     await update.message.reply_text(
         "Welcome to Admin Panel.",
@@ -716,6 +854,7 @@ async def admin_start_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 @admin_only
 async def admin_apps_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Показывает количество ожидающих заявок и предлагает начать обработку."""
     admin_id = update.effective_user.id
     count = len(PENDING_QUEUE)
     
@@ -736,18 +875,21 @@ async def admin_apps_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 @admin_only
 async def start_processing(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Начинает обработку следующей заявки из очереди."""
     admin_id = update.effective_user.id
     
     if not PENDING_QUEUE:
         await update.message.reply_text("The application queue is empty.", reply_markup=get_admin_main_keyboard(admin_id))
         return ADMIN_MENU
     
+    # Извлекаем ID следующего пользователя
     target_user_id = PENDING_QUEUE.popleft()
     context.user_data['target_user_id'] = target_user_id
     
     user_data = USER_DATA.get(target_user_id, {})
     app_info = user_data.get('application_info', {})
     
+    # Формируем сообщение
     info_text = get_message(admin_id, 'app_processing_info').format(
         id=target_user_id,
         game_id=user_data.get('game_id', 'N/A')
@@ -763,6 +905,7 @@ async def start_processing(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         
     final_text = "\n".join(message_parts)
 
+    # Отправка фото, если есть
     if app_info.get('photo_id'):
         await update.message.reply_photo(
             photo=app_info['photo_id'],
@@ -779,6 +922,7 @@ async def start_processing(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 @admin_only
 async def process_request_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Обрабатывает действия: Принять, Отклонить, Отклонить с комментарием."""
     admin_id = update.effective_user.id
     action = update.message.text
     target_user_id = context.user_data.get('target_user_id')
@@ -787,6 +931,7 @@ async def process_request_action(update: Update, context: ContextTypes.DEFAULT_T
         await update.message.reply_text("Error: No user ID found for processing.", reply_markup=get_admin_main_keyboard(admin_id))
         return ADMIN_MENU
 
+    # Принять
     if action == get_message(admin_id, 'btn_accept'):
         USER_DATA[target_user_id]['access'] = 'GRANTED'
         STATS['accepted'] += 1
@@ -796,10 +941,12 @@ async def process_request_action(update: Update, context: ContextTypes.DEFAULT_T
         await update.message.reply_text(get_message(admin_id, 'app_accepted'), reply_markup=get_admin_main_keyboard(admin_id))
         return ADMIN_MENU
 
+    # Отклонить с комментарием
     elif action == get_message(admin_id, 'btn_reject_comment'):
         await update.message.reply_text(get_message(admin_id, 'prompt_reject_comment'), reply_markup=ReplyKeyboardRemove())
         return PROCESS_REQUEST_COMMENT
 
+    # Отклонить (без комментария)
     elif action == get_message(admin_id, 'btn_reject'):
         USER_DATA[target_user_id]['access'] = 'DENIED'
         STATS['denied'] += 1
@@ -809,16 +956,19 @@ async def process_request_action(update: Update, context: ContextTypes.DEFAULT_T
         await update.message.reply_text(get_message(admin_id, 'app_rejected'), reply_markup=get_admin_main_keyboard(admin_id))
         return ADMIN_MENU
         
+    # Назад в меню
     elif action == get_message(admin_id, 'btn_menu_back'):
+        # Возвращаем заявку в очередь
         PENDING_QUEUE.appendleft(target_user_id) 
         del context.user_data['target_user_id']
         await update.message.reply_text("Request deferred. Returning to Admin Menu.", reply_markup=get_admin_main_keyboard(admin_id))
         return ADMIN_MENU
 
-    return PROCESSING_REQUESTS
+    return PROCESSING_REQUESTS # Остаемся в состоянии, если не распознано
 
 @admin_only
 async def process_request_comment_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Обрабатывает ввод комментария для отклонения."""
     admin_id = update.effective_user.id
     comment = update.message.text
     target_user_id = context.user_data.get('target_user_id')
@@ -827,13 +977,16 @@ async def process_request_comment_input(update: Update, context: ContextTypes.DE
         await update.message.reply_text("Error: No user ID found for processing.", reply_markup=get_admin_main_keyboard(admin_id))
         return ADMIN_MENU
 
+    # Обновляем статус и статистику
     USER_DATA[target_user_id]['access'] = 'DENIED'
     STATS['corrected'] += 1
     STATS['total_handled'] += 1
     
+    # Отправляем пользователю сообщение с комментарием
     user_msg = get_message(target_user_id, 'access_rejected_with_comment_msg').format(comment=comment)
     await context.bot.send_message(target_user_id, user_msg)
     
+    # Отправляем подтверждение админу
     await update.message.reply_text(get_message(admin_id, 'comment_sent'), reply_markup=get_admin_main_keyboard(admin_id))
 
     del context.user_data['target_user_id']
@@ -841,6 +994,7 @@ async def process_request_comment_input(update: Update, context: ContextTypes.DE
 
 @admin_only
 async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Показывает статистику."""
     admin_id = update.effective_user.id
     
     stats_text = get_message(admin_id, 'stats_text').format(
@@ -855,6 +1009,7 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 
 @admin_only
 async def admin_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Показывает статус бота."""
     admin_id = update.effective_user.id
     
     status_text = get_message(admin_id, 'bot_status_text').format(status=STATS['bot_status'])
@@ -864,6 +1019,7 @@ async def admin_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
 @admin_only
 async def admin_broadcast_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Показывает меню рассылки."""
     admin_id = update.effective_user.id
     await update.message.reply_text(
         "Choose broadcast type:",
@@ -873,6 +1029,7 @@ async def admin_broadcast_menu(update: Update, context: ContextTypes.DEFAULT_TYP
 
 @admin_only
 async def start_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Обрабатывает начало рассылки (сейчас или позже)."""
     admin_id = update.effective_user.id
     action = update.message.text
     
@@ -898,6 +1055,7 @@ async def start_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     return ADMIN_BROADCAST_MENU
 
 async def save_broadcast_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Сохраняет контент рассылки (текст и/или фото)."""
     admin_id = update.effective_user.id
     
     if update.message.text:
@@ -905,10 +1063,12 @@ async def save_broadcast_content(update: Update, context: ContextTypes.DEFAULT_T
     if update.message.photo:
         context.user_data['broadcast_photo_id'] = update.message.photo[-1].file_id
 
+    # Проверка на наличие контента
     if not context.user_data.get('broadcast_text') and not context.user_data.get('broadcast_photo_id'):
         await update.message.reply_text("Please provide text or a photo for the broadcast.")
-        return context.user_data.get('broadcast_state')
+        return context.user_data.get('broadcast_state') # Возвращаемся в текущее состояние
     
+    # Продолжаем, в зависимости от типа рассылки
     if context.user_data.get('broadcast_type') == 'now':
         preview_text = f"Text: {context.user_data.get('broadcast_text', 'No text')}\nPhoto: {context.user_data.get('broadcast_photo_id', 'No photo')}"
         
@@ -927,6 +1087,7 @@ async def save_broadcast_content(update: Update, context: ContextTypes.DEFAULT_T
 
 @admin_only
 async def broadcast_confirm_now(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Подтверждение и немедленная отправка рассылки."""
     admin_id = update.effective_user.id
     action = update.message.text
     
@@ -934,8 +1095,10 @@ async def broadcast_confirm_now(update: Update, context: ContextTypes.DEFAULT_TY
         text = context.user_data.get('broadcast_text')
         photo_id = context.user_data.get('broadcast_photo_id')
         
-        user_ids = [uid for uid in USER_DATA if uid not in ADMIN_IDS]
+        # Фильтрация только активных пользователей (исключая админа)
+        user_ids = [uid for uid in USER_DATA if uid != ADMIN_ID]
         
+        # Логика рассылки
         success_count = 0
         for user_id in user_ids:
             try:
@@ -944,6 +1107,7 @@ async def broadcast_confirm_now(update: Update, context: ContextTypes.DEFAULT_TY
                 else:
                     await context.bot.send_message(user_id, text)
                 success_count += 1
+                # Небольшая задержка, чтобы избежать лимитов
                 await asyncio.sleep(0.05) 
             except Exception as e:
                 logger.warning(f"Failed to send broadcast to user {user_id}: {e}")
@@ -967,10 +1131,12 @@ async def broadcast_confirm_now(update: Update, context: ContextTypes.DEFAULT_TY
 
 @admin_only
 async def broadcast_set_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Обрабатывает ввод времени для отложенной рассылки."""
     admin_id = update.effective_user.id
     time_str = update.message.text
     
     try:
+        # Пытаемся распарсить дату и время
         scheduled_time = datetime.strptime(time_str, '%Y-%m-%d %H:%M')
         
         context.user_data['scheduled_time'] = scheduled_time
@@ -987,12 +1153,17 @@ async def broadcast_set_time(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 @admin_only
 async def broadcast_confirm_later(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Подтверждение и планирование отложенной рассылки."""
     admin_id = update.effective_user.id
     action = update.message.text
     
     if action == get_message(admin_id, 'btn_confirm'):
         scheduled_time = context.user_data['scheduled_time']
         
+        # Здесь должна быть логика планировщика. 
+        # В рамках этого кода мы просто ставим задачу в очередь.
+        
+        # Формируем задачу и сохраняем ее
         job_name = f"broadcast_{scheduled_time.timestamp()}"
         
         context.job_queue.run_once(
@@ -1024,12 +1195,13 @@ async def broadcast_confirm_later(update: Update, context: ContextTypes.DEFAULT_
     return BROADCAST_LATER_CONFIRM
 
 async def send_scheduled_broadcast(context: ContextTypes.DEFAULT_TYPE):
+    """Функция, которая выполняется по расписанию для отправки рассылки."""
     data = context.job.data
     text = data.get('text')
     photo_id = data.get('photo_id')
     admin_id = data.get('admin_id')
     
-    user_ids = [uid for uid in USER_DATA if uid not in ADMIN_IDS]
+    user_ids = [uid for uid in USER_DATA if uid != ADMIN_ID]
     success_count = 0
     
     for user_id in user_ids:
@@ -1043,6 +1215,7 @@ async def send_scheduled_broadcast(context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             logger.warning(f"Scheduled broadcast failed for user {user_id}: {e}")
             
+    # Уведомление админа о завершении рассылки
     await context.bot.send_message(
         admin_id, 
         f"✅ Scheduled broadcast completed! Sent to {success_count}/{len(user_ids)} users."
@@ -1054,6 +1227,7 @@ def main() -> None:
     """Запускает бота."""
     application = Application.builder().token(TOKEN).build()
 
+    # ВРЕМЕННЫЙ ХЕНДЛЕР ДЛЯ ПОЛУЧЕНИЯ FILE ID
     if GET_FILE_ID_MODE:
         application.add_handler(MessageHandler(filters.PHOTO | filters.DOCUMENT | filters.TEXT, get_file_id_handler))
         logger.info("Bot started in GET_FILE_ID_MODE. Send files to get their IDs.")
@@ -1069,7 +1243,6 @@ def main() -> None:
                 CallbackQueryHandler(set_language, pattern='^set_lang_'),
             ],
             MAIN_MENU: [
-                # Handlers para usuários normais
                 MessageHandler(filters.Regex(f"^{re.escape(MESSAGES['EN']['btn_instruction'])}") | filters.Regex(f"^{re.escape(MESSAGES['RU']['btn_instruction'])}") | filters.Regex(f"^{re.escape(MESSAGES['ES']['btn_instruction'])}") | filters.Regex(f"^{re.escape(MESSAGES['PT']['btn_instruction'])}"), handle_instruction),
                 MessageHandler(filters.Regex(f"^{re.escape(MESSAGES['EN']['btn_registration'])}") | filters.Regex(f"^{re.escape(MESSAGES['RU']['btn_registration'])}") | filters.Regex(f"^{re.escape(MESSAGES['ES']['btn_registration'])}") | filters.Regex(f"^{re.escape(MESSAGES['PT']['btn_registration'])}"), handle_registration),
                 MessageHandler(filters.Regex(f"^{re.escape(MESSAGES['EN']['btn_get_access'])}") | filters.Regex(f"^{re.escape(MESSAGES['RU']['btn_get_access'])}") | filters.Regex(f"^{re.escape(MESSAGES['ES']['btn_get_access'])}") | filters.Regex(f"^{re.escape(MESSAGES['PT']['btn_get_access'])}"), handle_get_access),
@@ -1078,7 +1251,7 @@ def main() -> None:
                 MessageHandler(filters.Regex(f"^{re.escape(MESSAGES['EN']['btn_support'])}") | filters.Regex(f"^{re.escape(MESSAGES['RU']['btn_support'])}") | filters.Regex(f"^{re.escape(MESSAGES['ES']['btn_support'])}") | filters.Regex(f"^{re.escape(MESSAGES['PT']['btn_support'])}"), handle_support),
                 MessageHandler(filters.Regex(f"^{re.escape(MESSAGES['EN']['btn_launch_app'])}") | filters.Regex(f"^{re.escape(MESSAGES['RU']['btn_launch_app'])}") | filters.Regex(f"^{re.escape(MESSAGES['ES']['btn_launch_app'])}") | filters.Regex(f"^{re.escape(MESSAGES['PT']['btn_launch_app'])}"), handle_launch_app),
                 
-                # Handler para admin voltar ao menu admin
+                # Хендлер для возврата админа в админ-меню
                 MessageHandler(filters.Regex(f"^{re.escape(MESSAGES['EN']['btn_menu_back'])}"), admin_start_menu),
             ],
             AWAITING_ID: [
@@ -1086,15 +1259,18 @@ def main() -> None:
             ],
             AWAITING_CHANNEL_CHECK: [
                 CallbackQueryHandler(handle_check_subscription, pattern='^check_sub_now$'),
+                # Добавляем хендлер для возврата в меню из Promo-flow, если пользователь нажмет кнопку-текст
                 MessageHandler(filters.Regex(f"^{re.escape(MESSAGES['EN']['btn_menu_back'])}") | filters.Regex(f"^{re.escape(MESSAGES['RU']['btn_menu_back'])}"), go_to_main_menu),
             ],
-            # --- Estados do Admin ---
+            # --- Админские состояния ---
             ADMIN_MENU: [
                 MessageHandler(filters.Regex(f"^{re.escape(MESSAGES['EN']['btn_admin_apps'].split('(')[0].strip())}"), admin_apps_menu),
                 MessageHandler(filters.Regex(f"^{re.escape(MESSAGES['EN']['btn_admin_status'])}"), admin_status),
                 MessageHandler(filters.Regex(f"^{re.escape(MESSAGES['EN']['btn_admin_stats'])}"), admin_stats),
                 MessageHandler(filters.Regex(f"^{re.escape(MESSAGES['EN']['btn_admin_broadcast'])}"), admin_broadcast_menu),
+                # Меню заявок
                 MessageHandler(filters.Regex(f"^{re.escape(MESSAGES['EN']['btn_start_processing'])}"), start_processing),
+                # Выход из админ-меню в пользовательское
                 MessageHandler(filters.Regex(f"^{re.escape(MESSAGES['EN']['btn_admin_back'])}"), go_to_main_menu),
             ],
             PROCESSING_REQUESTS: [
@@ -1132,5 +1308,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-
-
