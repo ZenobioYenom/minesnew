@@ -1228,7 +1228,7 @@ def main() -> None:
 
     # ВРЕМЕННЫЙ ХЕНДЛЕР ДЛЯ ПОЛУЧЕНИЯ FILE ID
     if GET_FILE_ID_MODE:
-        application.add_handler(MessageHandler(filters.PHOTO | filters.DOCUMENT | filters.TEXT, get_file_id_handler))
+        application.add_handler(MessageHandler(filters.PHOTO | filters.Document.ALL | filters.TEXT, get_file_id_handler))
         logger.info("Bot started in GET_FILE_ID_MODE. Send files to get their IDs.")
         application.run_polling(poll_interval=1)
         return
@@ -1307,5 +1307,6 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
+
 
 
