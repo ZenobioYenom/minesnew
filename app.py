@@ -24,7 +24,7 @@ SUPPORT_USERNAME = "@koalamoney3"
 PROMO_CODE = "MOB500RR"
 REG_LINK = "https://1wbkpnt.com/?open=register&p=gv72"
 CHANNEL_LINK = "https://t.me/+dWqBt5Ix380zNjI5"
-CHANNEL_USERNAME = "1002486046690" # Имя канала с @
+CHANNEL_USERNAME = "@mgoldenmines" # Имя канала с @
 MINI_APP_URL = "https://zenobioyenom.github.io/appmineswin/"
 
 # ШАГ 1: ВРЕМЕННЫЙ РЕЖИМ ДЛЯ ПОЛУЧЕНИЯ FILE ID
@@ -1308,3 +1308,4 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
+
