@@ -695,26 +695,25 @@ async def handle_get_access(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         return MAIN_MENU
         
     # 2. Если уже одобрен, показываем сообщение с кнопкой Mini App
-if status == 'GRANTED':
-    from telegram import WebAppInfo  # <- adiciona suporte ao botão web_app
+    if status == 'GRANTED':
+        from telegram import WebAppInfo  # <- adiciona suporte ao botão web_app
 
-    keyboard = [
-        [
-            InlineKeyboardButton("📲 Abrir aplicativo", web_app=WebAppInfo(url=MINI_APP_URL))
-        ],
-        [
-            InlineKeyboardButton("🆘 Suporte", url=f"https://t.me/{SUPPORT_USERNAME.lstrip('@')}")
+        keyboard = [
+            [
+                InlineKeyboardButton("📲 Abrir aplicativo", web_app=WebAppInfo(url=MINI_APP_URL))
+            ],
+            [
+                InlineKeyboardButton("🆘 Suporte", url=f"https://t.me/{SUPPORT_USERNAME.lstrip('@')}")
+            ]
         ]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+        reply_markup = InlineKeyboardMarkup(keyboard)
 
-    await update.message.reply_text(
-        get_message(user_id, 'access_granted_msg'),
-        reply_markup=reply_markup
-    )
+        await update.message.reply_text(
+            get_message(user_id, 'access_granted_msg'),
+            reply_markup=reply_markup
+        )
 
-    return MAIN_MENU
-
+        return MAIN_MENU
         
     # 3. Если уже в ожидании, сообщаем
     if status == 'PENDING':
@@ -1308,4 +1307,5 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
+
 
