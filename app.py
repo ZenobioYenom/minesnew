@@ -29,7 +29,7 @@ MINI_APP_URL = "https://zenobioyenom.github.io/appmineswin/"
 DB_FILE = 'bot_data.json'
 
 # Modo temporário para capturar file_ids
-GET_FILE_ID_MODE = False
+GET_FILE_ID_MODE = True
 
 # Dicionário de file_ids (preenchido após coleta)
 PHOTO_IDS = {
@@ -1059,3 +1059,4 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
+
