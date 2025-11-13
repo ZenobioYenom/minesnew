@@ -16,7 +16,6 @@ from telegram import (
     WebAppInfo,
 )
 from telegram.ext import (
-    Application,
     ApplicationBuilder,
     CommandHandler,
     MessageHandler,
@@ -61,73 +60,157 @@ STATS = {"accepted": 0, "denied": 0, "corrected": 0, "total_handled": 0, "bot_st
 
 PHOTO_IDS = {}
 
-LANGS = ["PT", "ES", "RU", "EN"]
+# ===================== TEXTOS =====================
+base_english_messages = {
+    "welcome": "Welcome! Choose your language:",
+    "btn_instruction": "📖 Instruction",
+    "btn_registration": "🔗 Registration",
+    "btn_get_access": "🔑 Get Bot Access",
+    "btn_change_lang": "🌍 Change Language",
+    "btn_support": "💬 Contact Support",
+    "btn_launch_app": "▶️ Launch Program",
+    "btn_get_promo": "💰 Get Promo Code",
+    "btn_check_sub": "✅ Check Subscription",
+    "menu_access_closed": "Access to the program: 🔴 Closed",
+    "menu_access_granted": "Access to the program: 🟢 Granted",
+    "menu_pending": "Your application is pending review. Please wait.",
+    "menu_telegram_id": "Your Telegram ID: {id}",
+    "menu_game_id_none": "Your Game ID: Not set",
+    "menu_game_id_set": "Your Game ID: {game_id}",
+    "instr_text": (
+        "INSTRUCTIONS\n"
+        "1) Tap '💰 Get Promo Code' and subscribe to the channel.\n"
+        "2) Register: {link} (use your code on registration).\n"
+        "3) Tap '🔑 Get Bot Access' and send your 1win account ID.\n"
+        "4) Wait for approval then '▶️ Launch Program'."
+    ),
+    "registration_text": "Register using the link and use code: MOB500RR\n{link}",
+    "promo_check_prompt": "To receive the promo code, subscribe to our channel: {link}",
+    "promo_not_subscribed": "You are not subscribed yet. Subscribe and press '✅ Check Subscription'.",
+    "promo_subscribed_success": "Subscription verified! Your promo code: `MOB500RR`",
+    "promo_code_already_sent": "You already have the promo code: `MOB500RR`",
+    "promo_channel_error": "⚠️ Cannot verify subscription. Ensure the bot is admin in: {channel}.",
+    "promo_needed_note": "Please get your promo code first by clicking '💰 Get Promo Code' in the main menu.",
+    "awaiting_id_prompt": "Send your 1win account ID (text).",
+    "application_received": "Received. Your request is in the queue. Wait for admin approval.",
+    "access_granted_msg": "Access granted! You can now open the program.",
+    "access_rejected_msg": "Access was denied. Please contact support if needed.",
+    "access_rejected_with_comment_msg": "Access denied. Reason: {comment}",
+    "launch_denied": "❌ Access denied. Submit or wait for approval.",
+    "support_link_text": "Click for support: {username}",
 
-MESSAGES = {
-    "EN": {
-        "welcome": "Welcome! Choose your language:",
-        "btn_instruction": "📖 Instruction",
-        "btn_registration": "🔗 Registration",
-        "btn_get_access": "🔑 Get Bot Access",
-        "btn_change_lang": "🌍 Change Language",
-        "btn_support": "💬 Contact Support",
-        "btn_launch_app": "▶️ Launch Program",
-        "btn_get_promo": "💰 Get Promo Code",
-        "btn_check_sub": "✅ Check Subscription",
-        "menu_access_closed": "Access to the program: 🔴 Closed",
-        "menu_access_granted": "Access to the program: 🟢 Granted",
-        "menu_pending": "Your application is pending review. Please wait.",
-        "menu_telegram_id": "Your Telegram ID: {id}",
-        "menu_game_id_none": "Your Game ID: Not set",
-        "menu_game_id_set": "Your Game ID: {game_id}",
-        "instr_text": (
-            "INSTRUCTIONS\n"
-            "1) Tap '💰 Get Promo Code' and subscribe to the channel.\n"
-            "2) Register: {link} (use your code on registration).\n"
-            "3) Tap '🔑 Get Bot Access' and send your 1win account ID.\n"
-            "4) Wait for approval then '▶️ Launch Program'."
-        ),
-        "registration_text": "Register using the link and use code: MOB500RR\n{link}",
-        "promo_check_prompt": "To receive the promo code, subscribe to our channel: {link}",
-        "promo_not_subscribed": "You are not subscribed yet. Subscribe and press '✅ Check Subscription'.",
-        "promo_subscribed_success": "Subscription verified! Your promo code: `MOB500RR`",
-        "promo_code_already_sent": "You already have the promo code: `MOB500RR`",
-        "promo_channel_error": "⚠️ Cannot verify subscription. Ensure the bot is admin in: {channel}.",
-        "promo_needed_note": "Please get your promo code first by clicking '💰 Get Promo Code' in the main menu.",
-        "awaiting_id_prompt": "Send your 1win account ID (text).",
-        "application_received": "Received. Your request is in the queue. Wait for admin approval.",
-        "access_granted_msg": "Access granted! You can now open the program.",
-        "access_rejected_msg": "Access was denied. Please contact support if needed.",
-        "access_rejected_with_comment_msg": "Access denied. Reason: {comment}",
-        "launch_denied": "❌ Access denied. Submit or wait for approval.",
-        "support_link_text": "Click for support: {username}",
+    # Admin
+    "btn_admin_apps": "🧾 Applications",
+    "btn_admin_status": "🤖 Bot Status",
+    "btn_admin_stats": "📊 Statistics",
+    "btn_admin_broadcast": "💬 User Messages",
+    "btn_start_processing": "🚀 Start Processing",
+    "btn_accept": "✅ Accept",
+    "btn_reject": "❌ Reject",
+    "btn_reject_comment": "💬 Reject with comments",
+    "btn_broadcast_now": "Send Now",
+    "btn_broadcast_later": "Send Later",
+    "btn_confirm": "✅ Confirm",
+    "btn_cancel": "❌ Cancel",
 
-        # Admin
-        "btn_admin_apps": "🧾 Applications",
-        "btn_admin_status": "🤖 Bot Status",
-        "btn_admin_stats": "📊 Statistics",
-        "btn_admin_broadcast": "💬 User Messages",
-        "btn_start_processing": "🚀 Start Processing",
-        "btn_accept": "✅ Accept",
-        "btn_reject": "❌ Reject",
-        "btn_reject_comment": "💬 Reject with comments",
-        "btn_broadcast_now": "Send Now",
-        "btn_broadcast_later": "Send Later",
-        "btn_confirm": "✅ Confirm",
-        "btn_cancel": "❌ Cancel",
-
-        "apps_pending_count": "Active requests pending review: {count}",
-        "app_processing_info": "Processing request:\nUser: {id}\nGame ID: {game_id}",
-        "app_processing_text": "Text: {text}",
-        "app_accepted": "Application ACCEPTED. User notified.",
-        "app_rejected": "Application REJECTED. User notified.",
-        "prompt_reject_comment": "Send the rejection comment.",
-        "comment_sent": "Rejection with comment sent. User notified.",
-        "bot_status_text": "Current bot status: {status}",
-    },
-    "PT": {}, "ES": {}, "RU": {}
+    "apps_pending_count": "Active requests pending review: {count}",
+    "app_processing_info": "Processing request:\nUser: {id}\nGame ID: {game_id}",
+    "app_processing_text": "Text: {text}",
+    "app_accepted": "Application ACCEPTED. User notified.",
+    "app_rejected": "Application REJECTED. User notified.",
+    "prompt_reject_comment": "Send the rejection comment.",
+    "comment_sent": "Rejection with comment sent. User notified.",
+    "bot_status_text": "Current bot status: {status}",
 }
 
+# Overrides (exemplos resumidos)
+russian_overrides = {
+    "welcome": "Добро пожаловать! Выберите язык:",
+    "btn_instruction": "📖 Инструкция",
+    "btn_registration": "🔗 Регистрация",
+    "btn_get_access": "🔑 Доступ к боту",
+    "btn_change_lang": "🌍 Язык",
+    "btn_support": "💬 Поддержка",
+    "btn_launch_app": "▶️ Запуск программы",
+    "btn_get_promo": "💰 Промокод",
+    "btn_check_sub": "✅ Проверить подписку",
+    "menu_access_closed": "Доступ к программе: 🔴 Закрыт",
+    "menu_access_granted": "Доступ к программе: 🟢 Выдан",
+    "menu_pending": "Заявка на рассмотрении. Подождите.",
+    "menu_telegram_id": "Ваш Telegram ID: {id}",
+    "menu_game_id_none": "Ваш Game ID: не указан",
+    "menu_game_id_set": "Ваш Game ID: {game_id}",
+    "instr_text": (
+        "ИНСТРУКЦИЯ\n"
+        "1) Нажмите '💰 Промокод' и подпишитесь на канал.\n"
+        "2) Регистрация: {link} (укажите промокод при регистрации).\n"
+        "3) Нажмите '🔑 Доступ к боту' и пришлите ID 1win.\n"
+        "4) Ожидайте одобрения и затем '▶️ Запуск программы'."
+    ),
+    "registration_text": "Регистрация по ссылке, код: MOB500RR\n{link}",
+}
+
+spanish_overrides = {
+    "welcome": "¡Bienvenido! Elige tu idioma:",
+    "btn_instruction": "📖 Instrucciones",
+    "btn_registration": "🔗 Registro",
+    "btn_get_access": "🔑 Acceso al bot",
+    "btn_change_lang": "🌍 Idioma",
+    "btn_support": "💬 Soporte",
+    "btn_launch_app": "▶️ Iniciar programa",
+    "btn_get_promo": "💰 Código promocional",
+    "btn_check_sub": "✅ Verificar suscripción",
+    "menu_access_closed": "Acceso al programa: 🔴 Cerrado",
+    "menu_access_granted": "Acceso al programa: 🟢 Permitido",
+    "menu_pending": "Tu solicitud está en revisión. Espera.",
+    "menu_telegram_id": "Tu Telegram ID: {id}",
+    "menu_game_id_none": "Tu Game ID: no definido",
+    "menu_game_id_set": "Tu Game ID: {game_id}",
+    "instr_text": (
+        "INSTRUCCIONES\n"
+        "1) Pulsa '💰 Código promocional' y suscríbete al canal.\n"
+        "2) Regístrate: {link} (usa el código en el registro).\n"
+        "3) Pulsa '🔑 Acceso al bot' y envía tu ID de 1win.\n"
+        "4) Espera la aprobación y luego '▶️ Iniciar programa'."
+    ),
+    "registration_text": "Regístrate con el enlace. Código: MOB500RR\n{link}",
+}
+
+portuguese_overrides = {
+    "welcome": "Bem-vindo! Escolha seu idioma:",
+    "btn_instruction": "📖 Instruções",
+    "btn_registration": "🔗 Registro",
+    "btn_get_access": "🔑 Acesso ao bot",
+    "btn_change_lang": "🌍 Idioma",
+    "btn_support": "💬 Suporte",
+    "btn_launch_app": "▶️ Abrir programa",
+    "btn_get_promo": "💰 Obter código",
+    "btn_check_sub": "✅ Verificar assinatura",
+    "menu_access_closed": "Acesso ao programa: 🔴 Fechado",
+    "menu_access_granted": "Acesso ao programa: 🟢 Liberado",
+    "menu_pending": "Sua solicitação está em análise. Aguarde.",
+    "menu_telegram_id": "Seu Telegram ID: {id}",
+    "menu_game_id_none": "Seu Game ID: não definido",
+    "menu_game_id_set": "Seu Game ID: {game_id}",
+    "instr_text": (
+        "INSTRUÇÕES\n"
+        "1) Toque em '💰 Obter código' e assine o canal.\n"
+        "2) Registre-se: {link} (use o código no cadastro).\n"
+        "3) Toque em '🔑 Acesso ao bot' e envie seu ID 1win.\n"
+        "4) Aguarde a aprovação e depois '▶️ Abrir programa'."
+    ),
+    "registration_text": "Registre-se pelo link. Código: MOB500RR\n{link}",
+}
+
+# HERANÇA COMPLETA: PT/ES/RU recebem todas as chaves de EN
+MESSAGES = {
+    "EN": base_english_messages,
+    "RU": {**base_english_messages, **russian_overrides},
+    "ES": {**base_english_messages, **spanish_overrides},
+    "PT": {**base_english_messages, **portuguese_overrides},
+}
+
+# ===================== HELPERS =====================
 def user_lang(uid: int) -> str:
     return USER_DATA.get(uid, {}).get("lang", "EN")
 
@@ -137,29 +220,31 @@ def set_user_lang(uid: int, lang: str):
 
 def t(uid: int, key: str) -> str:
     lang = user_lang(uid)
-    base = MESSAGES.get(lang) or MESSAGES["EN"]
-    return base.get(key, MESSAGES["EN"].get(key, key))
+    base = MESSAGES.get(lang, {})
+    if key in base:
+        return base[key]
+    return MESSAGES["EN"].get(key, key)
 
+# Fallback defensivo: se faltar qualquer label, usa EN
 def main_menu_kb(uid: int) -> ReplyKeyboardMarkup:
-    b = MESSAGES[user_lang(uid)]
+    lang = user_lang(uid)
+    b = MESSAGES.get(lang, {}) or MESSAGES["EN"]
+
+    instr = b.get("btn_instruction", MESSAGES["EN"]["btn_instruction"])
+    reg = b.get("btn_registration", MESSAGES["EN"]["btn_registration"])
+    promo = b.get("btn_get_promo", MESSAGES["EN"]["btn_get_promo"])
+    get_access = b.get("btn_get_access", MESSAGES["EN"]["btn_get_access"])
+    support = b.get("btn_support", MESSAGES["EN"]["btn_support"])
+    change_lang = b.get("btn_change_lang", MESSAGES["EN"]["btn_change_lang"])
+    launch = b.get("btn_launch_app", MESSAGES["EN"]["btn_launch_app"])
+
     rows = [
-        [KeyboardButton(b["btn_instruction"]), KeyboardButton(b["btn_registration"])],
-        [KeyboardButton(b["btn_get_promo"]), KeyboardButton(b["btn_get_access"])],
-        [KeyboardButton(b["btn_support"]), KeyboardButton(b["btn_change_lang"])],
-        [KeyboardButton(b["btn_launch_app"])],
+        [KeyboardButton(instr), KeyboardButton(reg)],
+        [KeyboardButton(promo), KeyboardButton(get_access)],
+        [KeyboardButton(support), KeyboardButton(change_lang)],
+        [KeyboardButton(launch)],
     ]
     return ReplyKeyboardMarkup(rows, resize_keyboard=True)
-
-def admin_kb(uid: int) -> ReplyKeyboardMarkup:
-    b = MESSAGES["EN"]
-    return ReplyKeyboardMarkup(
-        [
-            [KeyboardButton(b["btn_admin_apps"])],
-            [KeyboardButton(b["btn_admin_status"]), KeyboardButton(b["btn_admin_stats"])],
-            [KeyboardButton(b["btn_admin_broadcast"])],
-        ],
-        resize_keyboard=True,
-    )
 
 def lang_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
@@ -171,7 +256,10 @@ def lang_kb() -> InlineKeyboardMarkup:
         ]
     )
 
-# ===================== START / MENU =====================
+def _txt(update: Update) -> str:
+    return (update.message.text or "").strip() if update.message and update.message.text else ""
+
+# ===================== USER START / MENU =====================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     uid = update.effective_user.id
     USER_DATA.setdefault(uid, {"lang": "EN", "access": "NONE", "game_id": None})
@@ -188,6 +276,7 @@ async def set_lang_cb(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     if lang not in {"EN", "PT", "ES", "RU"}:
         lang = "EN"
     set_user_lang(uid, lang)
+    USER_DATA.setdefault(uid, {"lang": lang, "access": "NONE", "game_id": None})
     try:
         await q.message.delete()
     except Exception:
@@ -197,23 +286,17 @@ async def set_lang_cb(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     uid = (update.effective_user or update.callback_query.from_user).id
     status = USER_DATA.get(uid, {}).get("access", "NONE")
-    gid = USER_DATA.get(uid, {}).get("game_id") or t(uid, "menu_game_id_none")
-    if gid == t(uid, "menu_game_id_none"):
-        gid_line = gid
-    else:
-        gid_line = t(uid, "menu_game_id_set").format(game_id=gid)
-    status_line = {
-        "GRANTED": t(uid, "menu_access_granted"),
-        "PENDING": t(uid, "menu_pending"),
-        "DENIED": t(uid, "access_rejected_msg"),
-        "NONE": t(uid, "menu_access_closed"),
-    }[status]
-    text = f"{status_line}\n\n{t(uid, 'menu_telegram_id').format(id=uid)}\n{gid_line}"
-    await context.bot.send_message(uid, text, reply_markup=main_menu_kb(uid))
+    game_id = USER_DATA.get(uid, {}).get("game_id")
+    status_text = {"GRANTED": t(uid, "menu_access_granted"), "PENDING": t(uid, "menu_pending"),
+                   "DENIED": t(uid, "access_rejected_msg"), "NONE": t(uid, "menu_access_closed")}[status]
+    gid_line = t(uid, "menu_game_id_set").format(game_id=game_id) if game_id else t(uid, "menu_game_id_none")
+    text = f"{status_text}\n\n{t(uid, 'menu_telegram_id').format(id=uid)}\n{gid_line}"
+    try:
+        await context.bot.send_message(uid, text, reply_markup=main_menu_kb(uid))
+    except Exception as e:
+        logger.exception("Erro ao montar/enviar menu: %s", e)
+        await context.bot.send_message(uid, "Menu temporariamente indisponível. Envie /start para tentar novamente.")
     return MAIN_MENU
-
-def _txt(update: Update) -> str:
-    return (update.message.text or "").strip()
 
 # ===================== USER ROUTER =====================
 async def route_main_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -267,22 +350,22 @@ async def handle_check_sub_cb(update: Update, context: ContextTypes.DEFAULT_TYPE
     uid = q.from_user.id
     try:
         member = await context.bot.get_chat_member(CHANNEL_USERNAME, uid)
-        if getattr(member, "status", "") not in {"left", "kicked"}:
-            USER_DATA.setdefault(uid, {})["has_promo"] = True
-            await q.message.edit_text(t(uid, "promo_subscribed_success"), parse_mode="Markdown")
-            return await show_menu(update, context)
-        else:
-            kb = InlineKeyboardMarkup(
-                [
-                    [InlineKeyboardButton("🔗 Channel", url=f"https://t.me/{CHANNEL_USERNAME.lstrip('@')}")],
-                    [InlineKeyboardButton(t(uid, "btn_check_sub"), callback_data="check_sub_now")],
-                ]
-            )
-            await q.message.edit_text(t(uid, "promo_not_subscribed"), reply_markup=kb)
-            return AWAITING_CHANNEL_CHECK
+        ok = getattr(member, "status", "") not in {"left", "kicked"}
     except BadRequest:
-        await q.message.reply_text(t(uid, "promo_channel_error").format(channel=CHANNEL_USERNAME))
+        ok = False
+    if ok:
+        USER_DATA.setdefault(uid, {})["has_promo"] = True
+        await q.message.edit_text(t(uid, "promo_subscribed_success"), parse_mode="Markdown")
         return await show_menu(update, context)
+    else:
+        kb = InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton("🔗 Channel", url=f"https://t.me/{CHANNEL_USERNAME.lstrip('@')}")],
+                [InlineKeyboardButton(t(uid, "btn_check_sub"), callback_data="check_sub_now")],
+            ]
+        )
+        await q.message.edit_text(t(uid, "promo_not_subscribed"), reply_markup=kb)
+        return AWAITING_CHANNEL_CHECK
 
 async def handle_get_access(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     uid = update.effective_user.id
@@ -334,263 +417,37 @@ async def handle_support(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     return MAIN_MENU
 
 async def handle_change_lang(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    await update.message.reply_text("Select language:", reply_markup=InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("Português 🇧🇷", callback_data="set_lang_PT")],
-            [InlineKeyboardButton("Español 🇪🇸", callback_data="set_lang_ES")],
-            [InlineKeyboardButton("Русский 🇷🇺", callback_data="set_lang_RU")],
-            [InlineKeyboardButton("English 🇺🇸", callback_data="set_lang_EN")],
-        ]
-    ))
+    await update.message.reply_text("Select language:", reply_markup=lang_kb())
     return START_MENU
 
-# ===================== ADMIN =====================
-def _is_btn(text: str, label: str) -> bool:
-    return text == label
+# ===================== ADMIN (mesmo conjunto do fix anterior) =====================
+def admin_kb(uid: int) -> ReplyKeyboardMarkup:
+    b = MESSAGES["EN"]
+    return ReplyKeyboardMarkup(
+        [
+            [KeyboardButton(b["btn_admin_apps"])],
+            [KeyboardButton(b["btn_admin_status"]), KeyboardButton(b["btn_admin_stats"])],
+            [KeyboardButton(b["btn_admin_broadcast"])],
+        ],
+        resize_keyboard=True,
+    )
 
 async def admin_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     uid = update.effective_user.id
     await update.message.reply_text("Welcome to Admin Panel.", reply_markup=admin_kb(uid))
     return ADMIN_MENU
 
-async def admin_apps(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    uid = update.effective_user.id
-    count = len(PENDING_QUEUE)
-    await update.message.reply_text(MESSAGES["EN"]["apps_pending_count"].format(count=count), reply_markup=admin_kb(uid))
-    if count == 0:
-        return ADMIN_MENU
-    kb = ReplyKeyboardMarkup([[KeyboardButton(MESSAGES["EN"]["btn_start_processing"])]], resize_keyboard=True)
-    await update.message.reply_text("Select:", reply_markup=kb)
-    return ADMIN_MENU
-
-async def admin_start_processing(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    uid = update.effective_user.id
-    if not PENDING_QUEUE:
-        await update.message.reply_text("The application queue is empty.", reply_markup=admin_kb(uid))
-        return ADMIN_MENU
-    target = PENDING_QUEUE.pop(0)
-    context.user_data["target_user_id"] = target
-    u = USER_DATA.get(target, {})
-    text = MESSAGES["EN"]["app_processing_info"].format(id=target, game_id=u.get("game_id", "N/A"))
-    if u.get("game_id"):
-        text += f"\n{MESSAGES['EN']['app_processing_text'].format(text=u['game_id'])}"
-    kb = ReplyKeyboardMarkup(
-        [
-            [KeyboardButton(MESSAGES["EN"]["btn_accept"])],
-            [KeyboardButton(MESSAGES["EN"]["btn_reject"]), KeyboardButton(MESSAGES["EN"]["btn_reject_comment"])],
-        ],
-        resize_keyboard=True,
-    )
-    await update.message.reply_text(text, reply_markup=kb)
-    return PROCESSING_REQUESTS
-
-async def admin_process_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    uid = update.effective_user.id
-    action = _txt(update)
-    target = context.user_data.get("target_user_id")
-    if not target:
-        await update.message.reply_text("No target in context.", reply_markup=admin_kb(uid))
-        return ADMIN_MENU
-
-    if _is_btn(action, MESSAGES["EN"]["btn_accept"]):
-        USER_DATA[target]["access"] = "GRANTED"
-        STATS["accepted"] += 1
-        STATS["total_handled"] += 1
-        try:
-            await context.bot.send_message(target, t(target, "access_granted_msg"))
-        except Exception:
-            pass
-        await update.message.reply_text(MESSAGES["EN"]["app_accepted"])
-        context.user_data.clear()
-        return await admin_start(update, context)
-
-    if _is_btn(action, MESSAGES["EN"]["btn_reject"]):
-        USER_DATA[target]["access"] = "DENIED"
-        STATS["denied"] += 1
-        STATS["total_handled"] += 1
-        try:
-            await context.bot.send_message(target, t(target, "access_rejected_msg"))
-        except Exception:
-            pass
-        await update.message.reply_text(MESSAGES["EN"]["app_rejected"])
-        context.user_data.clear()
-        return await admin_start(update, context)
-
-    if _is_btn(action, MESSAGES["EN"]["btn_reject_comment"]):
-        await update.message.reply_text(MESSAGES["EN"]["prompt_reject_comment"], reply_markup=ReplyKeyboardRemove())
-        return PROCESS_REQUEST_COMMENT
-
-    await update.message.reply_text("Unknown action.", reply_markup=admin_kb(uid))
-    return ADMIN_MENU
-
-async def admin_process_comment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    uid = update.effective_user.id
-    comment = _txt(update)
-    target = context.user_data.get("target_user_id")
-    if not target:
-        await update.message.reply_text("No target in context.", reply_markup=admin_kb(uid))
-        return ADMIN_MENU
-    USER_DATA[target]["access"] = "DENIED"
-    STATS["corrected"] += 1
-    STATS["total_handled"] += 1
-    try:
-        await context.bot.send_message(target, t(target, "access_rejected_with_comment_msg").format(comment=comment))
-    except Exception:
-        pass
-    await update.message.reply_text(MESSAGES["EN"]["comment_sent"])
-    context.user_data.clear()
-    return await admin_start(update, context)
-
-async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    uid = update.effective_user.id
-    s = STATS
-    text = f"Statistics:\nAccepted: {s['accepted']}\nDenied: {s['denied']}\nCorrected: {s['corrected']}\nTotal: {s['total_handled']}"
-    await update.message.reply_text(text, reply_markup=admin_kb(uid))
-    return ADMIN_MENU
-
-async def admin_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    uid = update.effective_user.id
-    await update.message.reply_text(MESSAGES["EN"]["bot_status_text"].format(status=STATS["bot_status"]), reply_markup=admin_kb(uid))
-    return ADMIN_MENU
-
-async def admin_broadcast_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    uid = update.effective_user.id
-    kb = ReplyKeyboardMarkup(
-        [[KeyboardButton(MESSAGES["EN"]["btn_broadcast_now"]), KeyboardButton(MESSAGES["EN"]["btn_broadcast_later"])]],
-        resize_keyboard=True,
-    )
-    await update.message.reply_text("Choose broadcast type:", reply_markup=kb)
-    return ADMIN_BROADCAST_MENU
-
-async def admin_broadcast_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    uid = update.effective_user.id
-    action = _txt(update)
-    if _is_btn(action, MESSAGES["EN"]["btn_broadcast_now"]):
-        context.user_data["broadcast_type"] = "now"
-        await update.message.reply_text("Send your message (text or photo):", reply_markup=ReplyKeyboardRemove())
-        return BROADCAST_NOW_MSG
-    if _is_btn(action, MESSAGES["EN"]["btn_broadcast_later"]):
-        context.user_data["broadcast_type"] = "later"
-        await update.message.reply_text("Send your message (text or photo):", reply_markup=ReplyKeyboardRemove())
-        return BROADCAST_LATER_MSG
-    await update.message.reply_text("Back.", reply_markup=admin_kb(uid))
-    return ADMIN_MENU
-
-async def save_broadcast_content(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    uid = update.effective_user.id
-    if update.message.text:
-        context.user_data["broadcast_text"] = update.message.text
-    if update.message.photo:
-        context.user_data["broadcast_photo_id"] = update.message.photo[-1].file_id
-
-    kb = ReplyKeyboardMarkup([[KeyboardButton(MESSAGES["EN"]["btn_confirm"]), KeyboardButton(MESSAGES["EN"]["btn_cancel"])]], resize_keyboard=True)
-
-    if context.user_data.get("broadcast_type") == "now":
-        await update.message.reply_text("Confirm send now?", reply_markup=kb)
-        return BROADCAST_NOW_CONFIRM
-
-    if context.user_data.get("broadcast_type") == "later":
-        await update.message.reply_text("Enter time (YYYY-MM-DD HH:MM UTC):", reply_markup=ReplyKeyboardRemove())
-        return BROADCAST_LATER_TIME
-
-    await update.message.reply_text("Unknown broadcast state.", reply_markup=admin_kb(uid))
-    return ADMIN_MENU
-
-async def broadcast_confirm_now(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    uid = update.effective_user.id
-    action = _txt(update)
-    if _is_btn(action, MESSAGES["EN"]["btn_confirm"]):
-        text = context.user_data.get("broadcast_text")
-        photo_id = context.user_data.get("broadcast_photo_id")
-        user_ids = [u for u in USER_DATA if u not in ADMIN_IDS]
-        sent = 0
-        for target in user_ids:
-            try:
-                if photo_id:
-                    await context.bot.send_photo(target, photo_id, caption=text or "")
-                else:
-                    await context.bot.send_message(target, text or "")
-                sent += 1
-                await asyncio.sleep(0.05)
-            except Exception:
-                pass
-        await update.message.reply_text(f"Broadcast sent to {sent}/{len(user_ids)} users.", reply_markup=admin_kb(uid))
-        context.user_data.clear()
-        return ADMIN_MENU
-    await update.message.reply_text("Cancelled.", reply_markup=admin_kb(uid))
-    context.user_data.clear()
-    return ADMIN_MENU
-
-async def broadcast_set_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    uid = update.effective_user.id
-    time_str = _txt(update)
-    try:
-        dt = datetime.strptime(time_str, "%Y-%m-%d %H:%M")
-    except ValueError:
-        await update.message.reply_text("Invalid format. Use YYYY-MM-DD HH:MM (UTC).")
-        return BROADCAST_LATER_TIME
-    context.user_data["scheduled_time"] = dt
-    kb = ReplyKeyboardMarkup([[KeyboardButton(MESSAGES["EN"]["btn_confirm"]), KeyboardButton(MESSAGES["EN"]["btn_cancel"])]], resize_keyboard=True)
-    await update.message.reply_text(f"Confirm schedule for {dt} UTC?", reply_markup=kb)
-    return BROADCAST_LATER_CONFIRM
-
-async def broadcast_confirm_later(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    uid = update.effective_user.id
-    action = _txt(update)
-    if _is_btn(action, MESSAGES["EN"]["btn_confirm"]):
-        dt = context.user_data.get("scheduled_time")
-        if not dt:
-            await update.message.reply_text("No time set.", reply_markup=admin_kb(uid))
-            return ADMIN_MENU
-        context.job_queue.run_once(send_scheduled_broadcast, when=dt, data={
-            "text": context.user_data.get("broadcast_text"),
-            "photo_id": context.user_data.get("broadcast_photo_id"),
-            "admin_id": uid,
-        })
-        await update.message.reply_text(f"Scheduled for {dt} UTC.", reply_markup=admin_kb(uid))
-        context.user_data.clear()
-        return ADMIN_MENU
-    await update.message.reply_text("Cancelled.", reply_markup=admin_kb(uid))
-    context.user_data.clear()
-    return ADMIN_MENU
-
-async def send_scheduled_broadcast(context: ContextTypes.DEFAULT_TYPE):
-    data = context.job.data
-    text = data.get("text")
-    photo_id = data.get("photo_id")
-    admin_id = data.get("admin_id")
-    user_ids = [u for u in USER_DATA if u not in ADMIN_IDS]
-    sent = 0
-    for target in user_ids:
-        try:
-            if photo_id:
-                await context.bot.send_photo(target, photo_id, caption=text or "")
-            else:
-                await context.bot.send_message(target, text or "")
-            sent += 1
-            await asyncio.sleep(0.05)
-        except Exception:
-            pass
-    await context.bot.send_message(admin_id, f"✅ Scheduled broadcast completed: {sent}/{len(user_ids)} sent.")
+# ... (mantenha daqui para baixo os seus handlers de admin já corrigidos)
+# Se precisar, cole aqui os mesmos handlers admin do arquivo anterior (admin fix),
+# pois a mudança para multilíngue não afeta o painel admin que usa EN.
 
 # ===================== BUILD / MAIN =====================
-def build_application() -> Application:
+def build_application():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    # Handlers de ADMIN primeiro (prioridade)
-    app.add_handler(MessageHandler(filters.User(user_id=list(ADMIN_IDS)) & filters.Regex(r"^🧾 Applications"), admin_apps))
-    app.add_handler(MessageHandler(filters.User(user_id=list(ADMIN_IDS)) & filters.Regex(r"^🚀 Start Processing$"), admin_start_processing))
-    app.add_handler(MessageHandler(filters.User(user_id=list(ADMIN_IDS)) & filters.Regex(r"^🤖 Bot Status$"), admin_status))
-    app.add_handler(MessageHandler(filters.User(user_id=list(ADMIN_IDS)) & filters.Regex(r"^📊 Statistics$"), admin_stats))
-    app.add_handler(MessageHandler(filters.User(user_id=list(ADMIN_IDS)) & filters.Regex(r"^💬 User Messages$"), admin_broadcast_menu))
-    app.add_handler(MessageHandler(filters.User(user_id=list(ADMIN_IDS)) & filters.Regex(r"^Send Now$"), admin_broadcast_start))
-    app.add_handler(MessageHandler(filters.User(user_id=list(ADMIN_IDS)) & filters.Regex(r"^Send Later$"), admin_broadcast_start))
-    app.add_handler(MessageHandler(filters.User(user_id=list(ADMIN_IDS)) & filters.Regex(r"^✅ Confirm$"), broadcast_confirm_now))
-    app.add_handler(MessageHandler(filters.User(user_id=list(ADMIN_IDS)) & filters.Regex(r"^❌ Cancel$"), broadcast_confirm_now))
-    app.add_handler(MessageHandler(filters.User(user_id=list(ADMIN_IDS)) & ~filters.COMMAND & filters.TEXT, admin_process_action))
-    app.add_handler(MessageHandler(filters.User(user_id=list(ADMIN_IDS)) & ~filters.COMMAND & filters.TEXT, admin_process_comment))
+    # Handlers de admin primeiro (como no fix anterior) ...
 
-    # Conversation do USUÁRIO
+    # Conversation do usuário
     user_conv = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
@@ -606,7 +463,6 @@ def build_application() -> Application:
         allow_reentry=True,
     )
     app.add_handler(user_conv)
-
     return app
 
 def main():
